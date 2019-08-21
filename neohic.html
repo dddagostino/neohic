@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Neovis.js Simple Example</title>
+        <style type="text/css">
+            html, body {
+                font: 16pt arial;
+            }
+
+            #viz {
+                width: 900px;
+                height: 700px;
+                border: 1px solid lightgray;
+                font: 22pt arial;
+            }
+        </style>
+
+
+        <link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/smoothness/jquery-ui.css">
+        <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
+        <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js"></script>
+
+
+        <script src="neovis-hic.js"></script>
+        <script type="text/javascript">
+
+
+
+
+        var viz;
+        var config;
+
+        function initViz() {
+          var res1, res2;
+          config = {
+                container_id: "viz",
+                server_url: "bolt://localhost:7687",
+                server_user: //"userid",
+                server_password: //"pwd",
+                labels: {
+                    "protein": {
+                        "caption": "label",
+                        "size": "width"
+                    }
+                },
+                relationships: {
+                /*    "LBA": {
+                        "thickness": "width",
+                        "caption": true
+                    }*/
+                },
+                initial_cypher: "MATCH (n:protein) return n"
+            };
+
+            viz = new NeoVis.default(config);
+
+            var gene = document.getElementById('selGene');
+            var exp = document.getElementById('selExp');
+
+            viz.performQuery("MATCH (m:experiment) return m").then(
+              (response) => {
+                //console.log("LL",response);
+                //res2 = response.slice();
+                response.sort();
+                for (var i = 0; i < response.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = response[i];
+                    opt.innerHTML = response[i];
+                    exp.appendChild(opt);
+                    config.relationships[response[i]] ={};
+                    config.relationships[response[i]].thickness = "width";
+                    config.relationships[response[i]].caption = true;
+                }
+                console.log("ALL",config);
+              },
+              (error) => {console.log(error)} );
+
+            viz.performQuery("MATCH (n:protein) return n").then(
+              (response) => {
+                response.sort();
+                for (var i = 0; i < response.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = response[i];
+                    opt.innerHTML = response[i];
+                    gene.appendChild(opt);
+                }
+
+                config.initial_cypher = "MATCH (n1 {label: '"+response[0]+"'})-[r1]->(n2) RETURN *";
+                console.log(config);
+                viz.reinit(config);
+
+                document.getElementById('messagearea').innerHTML="<I>Created a default network starting from "+response[0]+". There are "+response.length +" genes</I>";
+              },
+              (error) => {console.log(error)} );
+        }
+
+
+        function draw() {
+          let gene = document.getElementById('selGene');
+          let exp = document.getElementById('selExp');
+
+          //viz.render();
+          //console.log(gene.value,exp.value);
+
+          let querystring;
+
+          if(exp.value == "all") querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1]->(n2) RETURN *";
+          else querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1:"+exp.value+"]->(n2) RETURN *";
+          //viz.renderWithCypher("MATCH (n {label: \"ZBTB40\"})-[r1:LiebermanAiden_L5_20190402h182217]->(m {label: \"KDM1A\"})-[r2:LiebermanAiden_L5_20190402h182217]->(f) RETURN *");
+          //viz.render();
+
+          viz.performQuery(querystring).then(
+            (response) => {
+              document.getElementById('messagearea').innerHTML="<I>Created a network starting from "+gene.value+"</I>";
+              viz.renderWithCypher(querystring);
+              document.getElementById("backbutton").style.display="block";
+            },
+            (error) => {console.log(error)} );
+        }
+
+        function back() {
+          viz.revertquery();
+          document.getElementById('messagearea').innerHTML="<I>Back to the previous network</I>";
+        }
+
+    </script>
+    </head>
+    <body onload="initViz()">
+
+      <form class="form-inline" id="startform">
+
+          <div class="form-group">
+              <label for="inputGene">&nbsp;Select a gene &nbsp;</label>
+              <select class="form-control" id="selGene">
+              </select>
+          </div>
+
+          <div class="form-group">
+              <label for="inputExperiment">&nbsp;Select one or more experiments &nbsp;</label>
+              <select class="form-control" id="selExp">
+                  <!--<option value="nullvalue">Select...</option>-->
+                  <option value="all">all</option>
+              </select>
+          </div>
+
+          <div class="form-group">
+              <button type="button" class="btn btn-primary" id="drawbutton" onclick="draw()">Draw</button>
+              <button type="button" class="btn btn-primary" id="backbutton" display="none" onclick="back()">Back</button>
+          </div>
+      </form>
+
+      <br>
+      <span id="messagearea"></span>
+      <br><br>
+      <div id="viz"></div>
+    </body>
+</html>
