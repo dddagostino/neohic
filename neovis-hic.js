@@ -36512,7 +36512,7 @@ class NeoVis {
 				let count = (this._query.match(/->/g) || []).length + 1 ;
 				let ccount = count+1;
 
-				let newquery = this._query.slice(0,pos)+" ->(n"+count+" {label: \""+nlab+"\"})-[r"+count+exp+"]->(n"+ccount+") RETURN *";
+				let newquery = this._query.slice(0,pos)+"->(n"+count+" {label: \""+nlab+"\"})-[r"+count+exp+"]->(n"+ccount+") RETURN *";
 				//MATCH (n1 {label: 'A1CF'})-[r1] ->(n2) OPTIONAL MATCH (n2 {label: "SFMBT1"})-[r2]->(n3) RETURN *
 				viz.performQuery(newquery).then(
 					(response) => {
@@ -36546,7 +36546,12 @@ class NeoVis {
 					}
 					else {
 						///console.log(min,pos+min,this._query.slice(0,pos+min+4),count+") RETURN *");
-						this._query = this._query.slice(0,pos+min+4)+count+") RETURN *";
+						///this._query = this._query.slice(0,pos+min+4)+count+") RETURN *";
+						this._query = this._query.slice(0,pos+min+4);
+						let countnew = (this._query.match(/->/g) || []).length +1;
+						this._query = this._query.slice()+countnew+") RETURN *";
+
+						console.log("BACK to", this._query);
 						this.reload();
 					}
 				},
