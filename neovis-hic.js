@@ -36526,9 +36526,6 @@ class NeoVis {
 						}
 					},
 					(error) => {console.log(error)} );
-
-
-
 			}
 		}//nodo
 		else if(current.edges.length != 0){
@@ -36555,11 +36552,40 @@ class NeoVis {
 				},
 				(error) => {console.log(error)} );
 
-		} //Else I clicked not on an edge or node
-
-
-
+			} //Else I clicked not on an edge or node
 		}
+
+
+		updateNetwork2(nlab) {
+				console.log("UPDATE2", nlab);
+				if (this._query.search(nlab) == -1) {
+					let exp = "";
+					let pos = this._query.lastIndexOf("->");
+					if (this._query.search("r1:") != -1) {
+						let pos1 = this._query.indexOf("r1:");
+						let pos2 = this._query.indexOf("]");
+						exp = this._query.slice(pos1+2,pos2);
+						///console.log(this._query,pos1,pos2,exp);
+					}
+					let count = (this._query.match(/->/g) || []).length + 1 ;
+					let ccount = count+1;
+
+					let newquery = this._query.slice(0,pos)+" ->(n"+count+" {label: \""+nlab+"\"})-[r"+count+exp+"]->(n"+ccount+") RETURN *";
+					//MATCH (n1 {label: 'A1CF'})-[r1] ->(n2) OPTIONAL MATCH (n2 {label: "SFMBT1"})-[r2]->(n3) RETURN *
+					viz.performQuery(newquery).then(
+						(response) => {
+							if(response.length > 0) {
+								this._previousquery = this._query.slice(0);
+								//this._query = this._query.slice(0,pos)+" ->(n"+count+" {label: \""+nlab+"\"})-[r"+count+exp+"]->(n"+ccount+") RETURN *";
+								this._query = newquery;
+								this.reload();
+							} else {
+								window.alert("No extension is possible from "+nlab);
+							}
+						},
+						(error) => {console.log(error)} );
+				}
+			}
 
 	    // public API
 
@@ -36588,6 +36614,33 @@ class NeoVis {
 				});
 		}
 
+		listFrontierNodes() {
+			return new Promise((resolve, reject) => {
+				let session = this._driver.session();
+				let res = [];
+				let ccount = (this._query.match(/->/g) || []).length + 1 ;
+				let tempquery = this._query.slice().replace("*","n"+ccount);
+
+				session
+					.run(tempquery)//DAGO, {limit: 30})
+					.subscribe({
+			        onNext: (record) => {
+									record.forEach( (v) => {
+			            	///console.log("A",v.properties.label); // Consume the same Record object as above
+										res.push(v.properties.label);
+									})
+			        },
+			        onCompleted: function () {
+			            session.close();
+									resolve(res);
+			        },
+			        onError: function (error) {
+			            reject(error);
+			        }
+			    });
+
+				});
+		}
 
     render() {
         // connect to Neo4j instance

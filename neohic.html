@@ -15,7 +15,6 @@
             }
         </style>
 
-
         <link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/smoothness/jquery-ui.css">
         <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
         <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js"></script>
@@ -35,6 +34,7 @@
           config = {
                 container_id: "viz",
                 server_url: "bolt://localhost:7687",
+
                 server_user: //"userid",
                 server_password: //"pwd",
                 labels: {
@@ -59,8 +59,6 @@
 
             viz.performQuery("MATCH (m:experiment) return m").then(
               (response) => {
-                //console.log("LL",response);
-                //res2 = response.slice();
                 response.sort();
                 for (var i = 0; i < response.length; i++) {
                     var opt = document.createElement('option');
@@ -99,19 +97,15 @@
           let gene = document.getElementById('selGene');
           let exp = document.getElementById('selExp');
 
-          //viz.render();
-          //console.log(gene.value,exp.value);
 
           let querystring;
 
           if(exp.value == "all") querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1]->(n2) RETURN *";
           else querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1:"+exp.value+"]->(n2) RETURN *";
-          //viz.renderWithCypher("MATCH (n {label: \"ZBTB40\"})-[r1:LiebermanAiden_L5_20190402h182217]->(m {label: \"KDM1A\"})-[r2:LiebermanAiden_L5_20190402h182217]->(f) RETURN *");
-          //viz.render();
 
           viz.performQuery(querystring).then(
             (response) => {
-              document.getElementById('messagearea').innerHTML="<I>Created a network starting from "+gene.value+"</I>";
+              document.getElementById('messagearea').innerHTML="<I>Created a network starting from "+gene.value+".</I>";
               viz.renderWithCypher(querystring);
               document.getElementById("backbutton").style.display="block";
             },
@@ -121,6 +115,33 @@
         function back() {
           viz.revertquery();
           document.getElementById('messagearea').innerHTML="<I>Back to the previous network</I>";
+        }
+
+
+
+        function showlist() {
+          var nextgene = document.getElementById('popupSelect');
+          document.getElementById('popupSelect').options.length = 1;
+
+          viz.listFrontierNodes().then(
+            (response) => {
+              response.sort();
+              for (var i = 0; i < response.length; i++) {
+                  var opt = document.createElement('option');
+                  opt.value = response[i];
+                  opt.innerHTML = response[i];
+                  nextgene.appendChild(opt);
+              }
+              $("#popupSelect").show();
+            },
+            (error) => {console.log(error)} );
+        }
+
+        function nextGene() {
+            let gene = document.getElementById('popupSelect');
+            console.log("selected ",gene.value);
+            viz.updateNetwork2(gene.value);
+            $("#popupSelect").hide();
         }
 
     </script>
@@ -138,8 +159,14 @@
           <div class="form-group">
               <label for="inputExperiment">&nbsp;Select one or more experiments &nbsp;</label>
               <select class="form-control" id="selExp">
-                  <!--<option value="nullvalue">Select...</option>-->
                   <option value="all">all</option>
+              </select>
+          </div>
+
+          <div class="form-group">
+            <label id="labelSelect" onclick="showlist()">&nbsp;Optional: click here to select the next gene </label>
+              <select class="form-control" id="popupSelect" style="display:none" onchange="nextGene()">
+                <option value="nullvalue">Select...</option>
               </select>
           </div>
 
@@ -147,6 +174,9 @@
               <button type="button" class="btn btn-primary" id="drawbutton" onclick="draw()">Draw</button>
               <button type="button" class="btn btn-primary" id="backbutton" display="none" onclick="back()">Back</button>
           </div>
+
+
+
       </form>
 
       <br>
