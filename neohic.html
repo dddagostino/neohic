@@ -1,4 +1,5 @@
 <!doctype html>
+
 <html>
     <head>
         <title>Neovis.js Simple Example</title>
@@ -15,16 +16,18 @@
             }
         </style>
 
-        <link rel="stylesheet" href="//code.jquery.com/ui/1.12.0/themes/smoothness/jquery-ui.css">
         <script src="https://code.jquery.com/jquery-3.2.1.js"></script>
-        <script src="https://code.jquery.com/ui/1.12.0/jquery-ui.js"></script>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+
+        <!-- Optional theme -->
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap-theme.min.css" integrity="sha384-rHyoN1iRsVXV4nD0JutlnGaslCJuC7uwjduW9SVrLvRYooPp2bWYgmgJQIXwl/Sp" crossorigin="anonymous">
+
+        <!-- Latest compiled and minified JavaScript -->
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
 
 
         <script src="neovis-hic.js"></script>
         <script type="text/javascript">
-
-
-
 
         var viz;
         var config;
@@ -34,22 +37,16 @@
           config = {
                 container_id: "viz",
                 server_url: "bolt://localhost:7687",
-
-                server_user: //"userid",
-                server_password: //"pwd",
+                server_user: "neo4j",
+                server_password: "SETPWDHERE",
                 labels: {
-                    "protein": {
-                        "caption": "label",
-                        "size": "width"
+                    "gene": {
+                        "caption": "label"
                     }
                 },
                 relationships: {
-                /*    "LBA": {
-                        "thickness": "width",
-                        "caption": true
-                    }*/
                 },
-                initial_cypher: "MATCH (n:protein) return n"
+                initial_cypher: "MATCH (n:gene) return n"
             };
 
             viz = new NeoVis.default(config);
@@ -66,14 +63,14 @@
                     opt.innerHTML = response[i];
                     exp.appendChild(opt);
                     config.relationships[response[i]] ={};
-                    config.relationships[response[i]].thickness = "width";
+                    config.relationships[response[i]].thickness = "prob";
                     config.relationships[response[i]].caption = true;
                 }
                 console.log("ALL",config);
               },
               (error) => {console.log(error)} );
 
-            viz.performQuery("MATCH (n:protein) return n").then(
+            viz.performQuery("MATCH (n:gene) return n").then(
               (response) => {
                 response.sort();
                 for (var i = 0; i < response.length; i++) {
@@ -83,11 +80,13 @@
                     gene.appendChild(opt);
                 }
 
-                config.initial_cypher = "MATCH (n1 {label: '"+response[0]+"'})-[r1]->(n2) RETURN *";
+                var exp2 = $('#edgeW').val();
+
+                config.initial_cypher = "MATCH (n1 {label: '"+response[0]+"'})-[r1]-(n2) WHERE r1.prob >= "+exp2+ " RETURN *";
                 console.log(config);
                 viz.reinit(config);
-
-                document.getElementById('messagearea').innerHTML="<I>Created a default network starting from "+response[0]+". There are "+response.length +" genes</I>";
+                //document.getElementById('messagearea').innerHTML="<I>Created a default network starting from "+response[0]+". There are "+response.length +" genes</I>";
+                viz._events.register('completed', function(record_count) { graphUpdated(record_count) });
               },
               (error) => {console.log(error)} );
         }
@@ -97,26 +96,64 @@
           let gene = document.getElementById('selGene');
           let exp = document.getElementById('selExp');
 
+          //document.getElementById('messagearea').innerHTML="<I>Creating a network starting from "+gene.value+".</I>";
+
+          var exp1 = $('#selExp').val().toString();
+          exp1 = exp1.replace(/,/g, '|');
+          var exp2 = $('#edgeW').val();
+
 
           let querystring;
-
-          if(exp.value == "all") querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1]->(n2) RETURN *";
-          else querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1:"+exp.value+"]->(n2) RETURN *";
+          if(exp.value == "all") querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1]-(n2) WHERE r1.prob >= "+exp2+ " RETURN *";
+          else querystring = "MATCH (n1 {label: \""+gene.value+"\"})-[r1:"+exp1+"]-(n2) WHERE r1.prob >= "+exp2+ " RETURN *";
 
           viz.performQuery(querystring).then(
             (response) => {
-              document.getElementById('messagearea').innerHTML="<I>Created a network starting from "+gene.value+".</I>";
-              viz.renderWithCypher(querystring);
-              document.getElementById("backbutton").style.display="block";
+              if(response.length > 0) {
+                viz.renderWithCypher(querystring);
+                document.getElementById("backbutton").style.display="block";
+              } else {
+                window.alert("No edges for "+gene.value+", "+exp1+", "+exp2);
+              }
             },
             (error) => {console.log(error)} );
         }
 
         function back() {
           viz.revertquery();
-          document.getElementById('messagearea').innerHTML="<I>Back to the previous network</I>";
+          //document.getElementById('messagearea').innerHTML="<I>Back to the previous network</I>";
         }
 
+        function showText() {
+          var x = document.getElementById("messagearea");
+            if (window.getComputedStyle(x).display === "none") {
+              $("#messagearea").show();
+            } else {
+              $("#messagearea").hide();
+            }
+        }
+
+        function runQuery() {
+          var x = document.getElementById("messagearea").value;
+          var querystring = x.replace("Actual query: ","");
+
+          viz.performQuery(querystring).then(
+            (response) => {
+              if(response.length > 0) {
+                viz.renderWithCypher(querystring);
+                document.getElementById("backbutton").style.display="block";
+              } else {
+                window.alert("No data for this query");
+              }
+            },
+            (error) => {console.log(error)} );
+
+        }
+
+        function printquery() {
+          //document.getElementById('messagearea').innerHTML="Actual query: "+viz._query;
+          document.getElementById('messagearea').value="Actual query: "+viz._query;
+        }
 
 
         function showlist() {
@@ -126,12 +163,14 @@
           viz.listFrontierNodes().then(
             (response) => {
               response.sort();
-              for (var i = 0; i < response.length; i++) {
+
+                for (var i = 0; i < response.length; i++) {
                   var opt = document.createElement('option');
                   opt.value = response[i];
                   opt.innerHTML = response[i];
                   nextgene.appendChild(opt);
-              }
+                }
+
               $("#popupSelect").show();
             },
             (error) => {console.log(error)} );
@@ -141,47 +180,79 @@
             let gene = document.getElementById('popupSelect');
             console.log("selected ",gene.value);
             viz.updateNetwork2(gene.value);
-            $("#popupSelect").hide();
+            //$("#popupSelect").hide();
+        }
+
+        function graphUpdated(num) {
+          showlist();
+          printquery();
         }
 
     </script>
     </head>
     <body onload="initViz()">
 
-      <form class="form-inline" id="startform">
+      <div class="col-md-8 col-md-offset-1">
+      <BR/><BR/>
+      <form id="startform">
 
-          <div class="form-group">
-              <label for="inputGene">&nbsp;Select a gene &nbsp;</label>
-              <select class="form-control" id="selGene">
-              </select>
+          <div class="form-group row">
+              <label class="col-md-3 col-form-label" for="inputGene">&nbsp;Select the starting gene &nbsp;</label>
+              <div class="col-md-4">
+                <select class="form-control" id="selGene"></select>
+              </div>
           </div>
 
-          <div class="form-group">
-              <label for="inputExperiment">&nbsp;Select one or more experiments &nbsp;</label>
-              <select class="form-control" id="selExp">
-                  <option value="all">all</option>
-              </select>
+          <div class="form-group row">
+              <label class="col-md-3 col-form-label" for="inputExperiment">&nbsp;Select one or more experiments &nbsp;</label>
+              <div class="col-md-4">
+                <select class="form-control" id="selExp" multiple>
+                  <option value="all" selected>all</option>
+                </select>
+              </div>
           </div>
 
-          <div class="form-group">
-            <label id="labelSelect" onclick="showlist()">&nbsp;Optional: click here to select the next gene </label>
+          <div class="form-group row">
+              <label class="col-md-3 col-form-label" for="inputExperiment">&nbsp;Min. edge prob [0-1] &nbsp;</label>
+              <div class="col-md-4">
+                <input id="edgeW" type="number" placeholder="0.0" step="0.05" min="0" max="1" value="0.00">
+              </div>
+          </div>
+
+          <div class="form-group row">
+
+            <label class="col-md-3 col-form-label" id="labelSelect" onclick="showlist()">&nbsp;Next gene (or 2 click on a node)</label>
+            <div class="col-md-4">
               <select class="form-control" id="popupSelect" style="display:none" onchange="nextGene()">
                 <option value="nullvalue">Select...</option>
               </select>
+            </div>
           </div>
 
-          <div class="form-group">
+          <div class="form-group row">
+            <div class="col-md-1">
               <button type="button" class="btn btn-primary" id="drawbutton" onclick="draw()">Draw</button>
+            </div>
+            <div class="col-md-1">
               <button type="button" class="btn btn-primary" id="backbutton" display="none" onclick="back()">Back</button>
+            </div>
+            <div class="col-md-2">
+              <button type="button" class="btn btn-primary" id="querybutton" onclick="showText()">Show/Hide Query</button>
+            </div>
+            <div class="col-md-2">
+              <button type="button" class="btn btn-primary" id="runbutton" display="none" onclick="runQuery()">Run Query</button>
+            </div>
           </div>
-
-
-
       </form>
 
+
       <br>
-      <span id="messagearea"></span>
+      <!-- <span id="messagearea"></span> -->
+      <textarea id="messagearea" rows="4" cols="135">
+      </textarea>
+
       <br><br>
       <div id="viz"></div>
+    </div> <!-- Main area -->
     </body>
 </html>
